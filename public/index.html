@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Quiz Host — Mentimeter Style</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="aurora-bg"></div>
+
+  <!-- Top Navigation Bar -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo">⚡</div>
+      <div>
+        <div class="brand-title" id="topQuizTitle">Hematology Live Quiz</div>
+        <div class="brand-sub" id="topQuizSub">Scan QR code to participate</div>
+      </div>
+    </div>
+
+    <div class="topbar-pills">
+      <div class="pill">
+        <span>Room PIN:</span>
+        <span class="pin-highlight" id="topPin">------</span>
+      </div>
+      <div class="pill">
+        <span>👥</span>
+        <span id="topPlayersCount">0</span>
+        <span>Joined</span>
+      </div>
+      <button class="btn btn-ghost" id="btnShowQrModal" title="Show Join QR">📱 QR Code</button>
+      <button class="btn btn-cyan" id="btnOpenEditor">✏️ Edit Questions & Images</button>
+      <button class="btn btn-ghost" id="btnResetLobby" title="Return to Lobby">🔄 Reset</button>
+    </div>
+  </header>
+
+  <!-- Main Stage -->
+  <main class="host-main">
+    <!-- 1. LOBBY VIEW -->
+    <section id="viewLobby" class="lobby-grid">
+      <div class="glass-card qr-panel">
+        <div style="font-weight:700; font-size:1.1rem;">Scan with Phone Camera</div>
+        <div class="qr-frame">
+          <img id="lobbyQrImg" alt="Join QR Code" />
+        </div>
+        <div style="font-size:0.85rem; color:var(--text-muted);">Or enter Room PIN at <strong id="joinBaseText" style="color:#fff;"></strong></div>
+        <div class="pin-box" id="lobbyPin">------</div>
+
+        <div class="url-edit-row">
+          <label for="customBaseUrl">Join Base URL (auto-detected LAN IP; change if using ngrok/tunnel):</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="customBaseUrl" class="input-dark" placeholder="http://192.168.x.x:3000" />
+            <button class="btn btn-ghost" id="btnUpdateQr" style="padding:8px 14px;">Apply</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card players-panel">
+        <div>
+          <div class="players-header">
+            <div>
+              <h2 style="font-family:'Space Grotesk',sans-serif; font-size:1.7rem;">Waiting for Participants...</h2>
+              <p style="color:var(--text-muted); margin-top:4px;" id="lobbyQuestionCount">10 multiple-choice questions ready</p>
+            </div>
+            <div class="pill" style="font-size:1rem;">
+              <span id="lobbyCountBig">0</span> Players Ready
+            </div>
+          </div>
+
+          <div class="players-grid" id="lobbyPlayersGrid" style="margin-top:22px;">
+            <div style="color:var(--text-muted); font-size:0.95rem;">Participants will appear here as soon as they scan the QR code...</div>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:12px; flex-wrap:wrap; border-top:1px solid rgba(255,255,255,0.08); padding-top:20px;">
+          <button class="btn btn-ghost btn-lg" id="btnOpenEditorFromLobby">✏️ Edit Questions</button>
+          <button class="btn btn-primary btn-lg" id="btnStartQuiz">🚀 Start Quiz</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. QUESTION & REVEAL VIEW -->
+    <section id="viewQuestion" class="question-stage" style="display:none;">
+      <div class="stage-header">
+        <div class="pill" style="font-size:1rem; padding:10px 18px;">
+          <span id="qCounter">Question 1 of 10</span>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="pill" style="font-size:0.95rem;">
+            <span>✅</span>
+            <span id="qAnsweredCount">0 / 0</span>
+            <span>Answered</span>
+          </div>
+          <div class="timer-ring" id="qTimerRing">
+            <span>⏱</span>
+            <span id="qTimerText">30s</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card question-card" id="questionCard">
+        <div class="question-text" id="qText">Loading question...</div>
+        <div class="question-image-wrap" id="qImageWrap" style="display:none;" title="Click to zoom">
+          <img id="qImage" alt="Question illustration" />
+          <span class="zoom-hint">🔍 Click to zoom</span>
+        </div>
+      </div>
+
+      <!-- Options (shown during Question) -->
+      <div class="options-grid" id="qOptionsGrid"></div>
+
+      <!-- Vote Distribution Chart (shown during Reveal) -->
+      <div class="glass-card chart-card" id="revealChartCard" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:1.25rem;">Live Response Distribution</h3>
+          <span style="color:#34d399; font-weight:700; font-size:0.95rem;" id="correctAnswerBanner"></span>
+        </div>
+        <div class="chart-bars" id="chartBars"></div>
+      </div>
+
+      <!-- Host Controls -->
+      <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:6px;">
+        <button class="btn btn-cyan btn-lg" id="btnRevealAnswer">👁️ Show Answer</button>
+        <button class="btn btn-emerald btn-lg" id="btnShowLeaderboard" style="display:none;">🏆 Show Leaderboard →</button>
+      </div>
+    </section>
+
+    <!-- 3. LEADERBOARD VIEW (After Each Question) -->
+    <section id="viewLeaderboard" style="display:none;">
+      <div class="glass-card leaderboard-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <div>
+            <h2 style="font-family:'Space Grotesk',sans-serif; font-size:1.85rem;">🏆 Live Leaderboard</h2>
+            <p style="color:var(--text-muted); margin-top:4px;" id="lbSubtitle">Standings after Question 1</p>
+          </div>
+          <button class="btn btn-primary btn-lg" id="btnNextQuestion">Next Question →</button>
+        </div>
+
+        <div class="leaderboard-list" id="leaderboardList"></div>
+      </div>
+    </section>
+
+    <!-- 4. FINAL PODIUM VIEW -->
+    <section id="viewFinished" style="display:none;">
+      <div class="glass-card leaderboard-card" style="max-width:900px; text-align:center;">
+        <h1 style="font-family:'Space Grotesk',sans-serif; font-size:2.3rem;">🎉 Final Podium!</h1>
+        <p style="color:var(--text-muted); margin-top:6px;">Congratulations to all participants!</p>
+
+        <div class="podium-wrap" id="podiumWrap"></div>
+
+        <div class="leaderboard-list" id="finalLeaderboardList" style="text-align:left;"></div>
+
+        <div style="margin-top:28px; display:flex; justify-content:center; gap:14px;">
+          <button class="btn btn-primary btn-lg" id="btnPlayAgain">🔄 Play Again (Keep Players)</button>
+          <button class="btn btn-ghost btn-lg" id="btnNewSession">✨ New Session (New PIN)</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Quiz Editor Modal -->
+  <div class="modal-backdrop" id="editorModal">
+    <div class="glass-card editor-modal">
+      <div class="editor-header">
+        <div>
+          <h2 style="font-family:'Space Grotesk',sans-serif; font-size:1.35rem;">✏️ Edit Quiz Questions & Images</h2>
+          <p style="font-size:0.82rem; color:var(--text-muted);">Changes save to disk and update live.</p>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button class="btn btn-emerald" id="btnSaveQuiz">💾 Save All Changes</button>
+          <button class="btn btn-ghost" id="btnCloseEditor">✕ Close</button>
+        </div>
+      </div>
+
+      <div class="editor-body">
+        <div class="editor-sidebar">
+          <div class="form-row" style="margin-bottom:8px;">
+            <label>Quiz Title</label>
+            <input type="text" id="editQuizTitle" class="input-dark" />
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin:6px 0;">
+            <span style="font-size:0.8rem; font-weight:700; color:var(--text-muted);">QUESTIONS</span>
+            <button class="btn btn-primary" id="btnAddQuestion" style="padding:6px 10px; font-size:0.78rem;">+ Add</button>
+          </div>
+          <div id="editorQuestionList" style="display:flex; flex-direction:column; gap:6px;"></div>
+        </div>
+
+        <div class="editor-form" id="editorForm">
+          <div class="form-row">
+            <label>Question Text</label>
+            <textarea id="editQText" class="textarea-dark"></textarea>
+          </div>
+
+          <div class="form-row">
+            <label>Question Image (Optional — upload or replace)</label>
+            <div class="image-dropzone">
+              <img id="editQImagePreview" style="display:none;" alt="Preview" />
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <input type="file" id="editQImageInput" accept="image/*" style="color:#cbd5e1; font-size:0.85rem;" />
+                <button type="button" class="btn btn-danger" id="btnRemoveImage" style="padding:6px 12px; font-size:0.8rem; width:fit-content;">🗑️ Remove Image</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label>Multiple Choice Options (select the radio button for the correct answer)</label>
+            <div id="editOptionsContainer" style="display:flex; flex-direction:column; gap:8px;"></div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+            <div class="form-row">
+              <label>Time Limit (seconds)</label>
+              <input type="number" id="editQTime" class="input-dark" min="5" max="180" />
+            </div>
+            <div class="form-row">
+              <label>Points per Correct Answer</label>
+              <input type="number" id="editQPoints" class="input-dark" min="1" max="100" step="1" />
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; padding-top:10px; border-top:1px solid rgba(255,255,255,0.08);">
+            <div style="display:flex; gap:8px;">
+              <button type="button" class="btn btn-ghost" id="btnMoveUp">↑ Move Up</button>
+              <button type="button" class="btn btn-ghost" id="btnMoveDown">↓ Move Down</button>
+            </div>
+            <button type="button" class="btn btn-danger" id="btnDeleteQuestion">🗑️ Delete Question</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick QR Popup Modal (usable mid-quiz if someone joins late) -->
+  <div class="modal-backdrop" id="qrModal">
+    <div class="glass-card" style="padding:32px; text-align:center; max-width:380px; width:100%;">
+      <h3 style="font-family:'Space Grotesk',sans-serif; font-size:1.4rem; margin-bottom:14px;">Join Anytime!</h3>
+      <div class="qr-frame" style="margin:0 auto 14px;">
+        <img id="modalQrImg" alt="Join QR" />
+      </div>
+      <div class="pin-box" id="modalPin" style="margin-bottom:14px;">------</div>
+      <button class="btn btn-ghost" id="btnCloseQrModal" style="width:100%;">Close</button>
+    </div>
+  </div>
+
+  <!-- Image Lightbox -->
+  <div class="lightbox" id="lightbox">
+    <img id="lightboxImg" alt="Zoomed view" />
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/host.js"></script>
+</body>
+</html>
